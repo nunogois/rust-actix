@@ -19,3 +19,5 @@ cargo build
 # Build for release
 cargo build --release
 ```
+
+I'm still learning Rust, so let me know if you catch something wrong!
