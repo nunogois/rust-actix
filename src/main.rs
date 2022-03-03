@@ -1,3 +1,4 @@
+use actix_cors::Cors;
 use actix_web::{delete, get, post, put, web, App, HttpResponse, HttpServer, Responder};
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -31,7 +32,8 @@ async fn get_users(data: web::Data<AppState>) -> impl Responder {
 }
 
 #[get("{id}")]
-async fn get_user(data: web::Data<AppState>, web::Path(id): web::Path<String>) -> impl Responder {
+async fn get_user(data: web::Data<AppState>, params: web::Path<String>) -> impl Responder {
+    let id = params.into_inner();
     let users = data.users.lock().unwrap();
 
     if let Some(user) = users.iter().find(|u| u.id == Some(id.to_string())) {
@@ -61,9 +63,10 @@ async fn post_user(data: web::Data<AppState>, mut user: web::Json<User>) -> impl
 #[put("{id}")]
 async fn put_user(
     data: web::Data<AppState>,
-    web::Path(id): web::Path<String>,
+    params: web::Path<String>,
     mut user: web::Json<User>,
 ) -> impl Responder {
+    let id = params.into_inner();
     let mut users = data.users.lock().unwrap();
 
     if !user.id.is_some() {
@@ -79,10 +82,8 @@ async fn put_user(
 }
 
 #[delete("{id}")]
-async fn delete_user(
-    data: web::Data<AppState>,
-    web::Path(id): web::Path<String>,
-) -> impl Responder {
+async fn delete_user(data: web::Data<AppState>, params: web::Path<String>) -> impl Responder {
+    let id = params.into_inner();
     let mut users = data.users.lock().unwrap();
 
     if let Some(index) = users.iter().position(|u| u.id == Some(id.to_string())) {
@@ -107,14 +108,19 @@ async fn main() -> std::io::Result<()> {
     });
 
     HttpServer::new(move || {
-        App::new().app_data(state.clone()).service(home).service(
-            web::scope("/users")
-                .service(get_users)
-                .service(get_user)
-                .service(post_user)
-                .service(put_user)
-                .service(delete_user),
-        )
+        let cors = Cors::permissive();
+        App::new()
+            .wrap(cors)
+            .app_data(state.clone())
+            .service(home)
+            .service(
+                web::scope("/users")
+                    .service(get_users)
+                    .service(get_user)
+                    .service(post_user)
+                    .service(put_user)
+                    .service(delete_user),
+            )
     })
     .bind("127.0.0.1:8080")?
     .run()
